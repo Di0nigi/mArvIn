@@ -1,61 +1,134 @@
 from ollama import chat 
 import tkinter as tk
+from tkinter import filedialog
 
 
 
 
 class App:
   def __init__(self, root, w, h, model):
-        self.chat = []
-        self.m = model
-        self.r = root
-        self.w = w
-        self.h = h
-        self.r.geometry(f"{self.w}x{self.h}")
-        self.r.title("mArvIn")
+    self.chat = []
+    self.currentFile=None
+    self.m = model
+    self.r = root
+    self.w = w
+    self.h = h
+    self.r.geometry(f"{self.w}x{self.h}")
+    self.r.title("mArvIn")
 
-        
-        self.mFrame = tk.Frame(self.r, bg="black")
-        self.mFrame.pack(fill="both", expand=True)
-
-       
-        self.activityBar = tk.Frame(self.mFrame, bg="grey", width=self.w // 10)
-        self.activityBar.pack(side="left", fill="y")
-
+    self.initModel()
      
-        self.chatSpace = tk.Frame(self.mFrame, bg="blue")
-        self.chatSpace.pack(side="right", fill="both", expand=True)
+    self.mFrame = tk.Frame(self.r, bg="black")
+    self.mFrame.pack(fill="both", expand=True)
+       
+    self.activityBar = tk.Frame(self.mFrame, bg="black", width=self.w // 10)
+    self.activityBar.pack(side="left", fill="y")
+   
+    self.chatSpace = tk.Frame(self.mFrame, bg="blue")
+    self.chatSpace.pack(side="right", fill="both", expand=True)
 
         
-        self.chatDisplay = tk.Text(
-            self.chatSpace,
+    self.chatDisplay = tk.Text(
+    self.chatSpace,
             bg="black",
             font=("Courier New", 12),
             foreground="light green",
             wrap="word",
             state="disabled"
         )
-        self.scrollbar = tk.Scrollbar(self.chatSpace, command=self.chatDisplay.yview)
-        self.chatDisplay.config(yscrollcommand=self.scrollbar.set)
+    self.scrollbar = tk.Scrollbar(self.chatSpace, command=self.chatDisplay.yview)
+    self.chatDisplay.config(yscrollcommand=self.scrollbar.set)
 
-        self.scrollbar.pack(side="right", fill="y")
-        self.chatDisplay.pack(side="top", fill="both", expand=True)
+    self.scrollbar.pack(side="right", fill="y")
+    self.chatDisplay.pack(side="top", fill="both", expand=True)
 
         
-        self.inputFrame = tk.Frame(self.chatSpace, bg="blue")
-        self.inputFrame.pack(side="bottom", fill="x")
+    self.inputFrame = tk.Frame(self.chatSpace, bg="blue")
+    self.inputFrame.pack(side="bottom", fill="x")
 
-        self.chatField = tk.Text(self.inputFrame, height=3, font=("Courier New", 12))  
-        self.chatField.pack(side="left", fill="x", expand=True, ipady=5)  
+    self.chatField = tk.Text(self.inputFrame, height=3, font=("Courier New", 12))  
+    self.chatField.pack(side="left", fill="x", expand=True, ipady=5)  
 
-        self.sendBtn = tk.Button(
-            self.inputFrame,
+    self.sendBtn = tk.Button(
+          self.inputFrame,
             text="Send",
             font=("Courier New", 9),
             command=self.sendQuery
         )
-        self.sendBtn.pack(side="right", fill="y", ipady=5)
+    self.sendBtn.pack(side="right", fill="y", ipady=5)
+    self.docBtn = tk.Button(
+          self.inputFrame,
+            text="Doc",
+            font=("Courier New", 9),
+            command=self.importFile
+        )
+    self.docBtn.pack(side="right", fill="y", ipady=5)
 
+    self.intiSettingsBar()
+      
+  def intiSettingsBar(self):
+    self.cardBtn = tk.Button(
+          self.activityBar,
+            text="Elab",
+            font=("Courier New", 9),
+            command=self.elaborateFile
+        )
+    self.cardBtn.pack(side="top", fill="x", ipady=5)
+
+
+
+    return
+  def importFile(self):
+        self.currentFile=filedialog.askopenfilename(
+        title="Select a File",
+        filetypes=[("All files", "*.*")]
+    )
+  def elaborateFile(self):
+
+    if self.currentFile:
+      fileContent=""
+      with open(self.currentFile, mode="r",encoding="utf-8") as f:
+        for line in f:
+          fileContent+=line
+      contextMessage = "Read the following file content, remember it and tell me now VERY shortly, just to now you read it what is it about the file starts now: "
+      self.chatDisplay.config(state="normal") 
+      self.chatDisplay.insert(tk.END, f"You: Elaborate the file \n")
+      self.chatDisplay.config(state="disabled")  
+      self.chatDisplay.see(tk.END)
+
+      self.chatDisplay.config(state="normal") 
+      self.chatDisplay.insert(tk.END, f"\n")
+      self.chatDisplay.config(state="disabled")  
+      self.chatDisplay.see(tk.END)
+
+      query = contextMessage+fileContent
+      self.chat.append({"role": "user", "content": query})
+
+      response = chat(model=self.m, messages=self.chat)
+
+      reply = response['message']['content']
+
+      reply= reply.split(" ")
+      nRep=""
+      c=1
+      for x in reply:
+        if c%12==0:
+          nRep+=f"{x}\n"
+        else:
+          nRep+=f"{x} "
+        c+=1
+      
+      self.chatDisplay.config(state="normal") 
+      self.chatDisplay.insert(tk.END, f"mArvIn: {nRep}\n")
+      self.chatDisplay.config(state="disabled")  
+      self.chatDisplay.see(tk.END)  
+
+      self.chat.append({"role": "assistant", "content": nRep})
+      #self.mFrame.pack()
+
+
+    return
+        
   def sendQuery(self):
 
     query=self.chatField.get("1.0", tk.END).strip()
@@ -107,6 +180,19 @@ class App:
     
 
     
+
+    return
+  
+  def initModel(self):
+    initMessage="You are a personal study assistant. Your name is mArvIn and you will help me complete various study and working related task. Feel free to be a bit snarky and funny but always helpful and thorough. this is the first message to which you do not need to reply. From the next message on the conversation will start. When asked to code it is crucial you ALWAYS use camelCase notation unless specifically asked to do otherwise and no matter the language or best practices. Keep the comments on the code separate and after the code. When asked to make anki card or whatever with a strict format it is crucial that you follow it to the letter. In general when I give you a piece of code to fix do not change the variable names or order as much as possible. Thank you for your help."
+
+
+    self.chat.append({"role": "user", "content": initMessage})
+    response = chat(model=self.m, messages=self.chat)
+    reply = response['message']['content']
+    #print(reply)
+    self.chat.append({"role": "assistant", "content": reply})
+
 
     return
   
