@@ -1,39 +1,60 @@
 from ollama import chat 
-from ollama import ChatResponse 
 import tkinter as tk
 
 
 
 
 class App:
-  def __init__(self, root,w,h,model):
-    
-    self.chat=[]
-    self.m=model
-    self.r=root
-    self.w=w
-    self.h=h
-    self.r.geometry(f"{self.w}x{self.h}")
-    self.r.title("mArvIn")
+  def __init__(self, root, w, h, model):
+        self.chat = []
+        self.m = model
+        self.r = root
+        self.w = w
+        self.h = h
+        self.r.geometry(f"{self.w}x{self.h}")
+        self.r.title("mArvIn")
 
-    self.mFrame=tk.Frame(self.r,bg="black",width=self.w,height=self.h)
-    self.mFrame.pack()
+        
+        self.mFrame = tk.Frame(self.r, bg="black")
+        self.mFrame.pack(fill="both", expand=True)
 
-    self.activityBar=tk.Frame(self.mFrame,bg="grey",height=self.h,width=self.w//10)
-    self.activityBar.place(x=0,y=0)
+       
+        self.activityBar = tk.Frame(self.mFrame, bg="grey", width=self.w // 10)
+        self.activityBar.pack(side="left", fill="y")
 
-    self.chatSpace=tk.Frame(self.mFrame,bg="blue",height=self.h,width=self.w-(self.w//10))
-    self.chatSpace.place(x=self.w//10,y=0)
+     
+        self.chatSpace = tk.Frame(self.mFrame, bg="blue")
+        self.chatSpace.pack(side="right", fill="both", expand=True)
 
-    self.chatDisplay=tk.Text(self.chatSpace,bg="black",height=self.h-(self.h//10),width=self.w-(self.w//10),font=("Arial", 12),foreground="green", wrap="word")
-    self.chatDisplay.place(x=0,y=0)
-    self.chatDisplay.config(state="disabled")
+        
+        self.chatDisplay = tk.Text(
+            self.chatSpace,
+            bg="black",
+            font=("Courier New", 12),
+            foreground="light green",
+            wrap="word",
+            state="disabled"
+        )
+        self.scrollbar = tk.Scrollbar(self.chatSpace, command=self.chatDisplay.yview)
+        self.chatDisplay.config(yscrollcommand=self.scrollbar.set)
 
-    self.chatField=tk.Text(self.chatSpace,height=self.h//10,width=self.w-(self.w//10)-(self.w//15))
-    self.chatField.place(x=0,y=self.h-(self.h//10))
+        self.scrollbar.pack(side="right", fill="y")
+        self.chatDisplay.pack(side="top", fill="both", expand=True)
 
-    self.sendBtn=tk.Button(self.chatSpace,width=self.w//15,height=self.h//10,command=self.sendQuery)
-    self.sendBtn.place(x=self.w-(self.w//10)-(self.w//15),y=self.h-(self.h//10))
+        
+        self.inputFrame = tk.Frame(self.chatSpace, bg="blue")
+        self.inputFrame.pack(side="bottom", fill="x")
+
+        self.chatField = tk.Text(self.inputFrame, height=3, font=("Courier New", 12))  
+        self.chatField.pack(side="left", fill="x", expand=True, ipady=5)  
+
+        self.sendBtn = tk.Button(
+            self.inputFrame,
+            text="Send",
+            font=("Courier New", 9),
+            command=self.sendQuery
+        )
+        self.sendBtn.pack(side="right", fill="y", ipady=5)
 
   def sendQuery(self):
 
@@ -46,6 +67,9 @@ class App:
     self.chatDisplay.config(state="disabled")  
     self.chatDisplay.see(tk.END)  
     
+
+   
+    
     
     #self.mFrame.pack()
     #print(query)
@@ -56,6 +80,7 @@ class App:
     self.chatDisplay.insert(tk.END, f"\n")
     self.chatDisplay.config(state="disabled")  
     self.chatDisplay.see(tk.END) 
+    
 
     response = chat(model=self.m, messages=self.chat)
 
@@ -65,24 +90,21 @@ class App:
     nRep=""
     c=1
     for x in reply:
-      if c%10==0:
+      if c%12==0:
         nRep+=f"{x}\n"
       else:
         nRep+=f"{x} "
       c+=1
-    #self.chatDisplay.config(text=reply,foreground="white")
-
+    
     self.chatDisplay.config(state="normal") 
     self.chatDisplay.insert(tk.END, f"mArvIn: {nRep}\n")
     self.chatDisplay.config(state="disabled")  
     self.chatDisplay.see(tk.END)  
 
-    
-
-    self.chat.append({"role": "assistant", "content": reply})
+    self.chat.append({"role": "assistant", "content": nRep})
     #self.mFrame.pack()
 
-
+    
 
     
 
@@ -99,7 +121,7 @@ class App:
 
 def main():
   root = tk.Tk()
-  app = App(root,w=700,h=700,model='llama3.2:3b')
+  app = App(root,w=1000,h=700,model='llama3.2:3b')
   app.run()
   return
 
