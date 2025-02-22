@@ -1,7 +1,10 @@
 from ollama import chat 
 import tkinter as tk
 from tkinter import filedialog
-
+import genanki as gk
+import pyttsx3
+from joblib import Parallel, delayed
+import threading
 
 
 
@@ -16,6 +19,9 @@ class App:
     self.r.geometry(f"{self.w}x{self.h}")
     self.r.title("mArvIn")
 
+    self.engine = pyttsx3.init()
+    self.engine.setProperty('rate', 290)
+    #self.engine.setProperty('voice', 1)
     self.initModel()
      
     self.mFrame = tk.Frame(self.r, bg="black")
@@ -67,11 +73,19 @@ class App:
     self.intiSettingsBar()
       
   def intiSettingsBar(self):
-    self.cardBtn = tk.Button(
+    self.elaBtn = tk.Button(
           self.activityBar,
             text="Elab",
             font=("Courier New", 9),
             command=self.elaborateFile
+        )
+    self.elaBtn.pack(side="top", fill="x", ipady=5)
+
+    self.cardBtn = tk.Button(
+          self.activityBar,
+            text="Cards",
+            font=("Courier New", 9),
+            command=self.makeCards
         )
     self.cardBtn.pack(side="top", fill="x", ipady=5)
 
@@ -79,17 +93,30 @@ class App:
 
     return
   def importFile(self):
-        self.currentFile=filedialog.askopenfilename(
+    self.currentFile=filedialog.askopenfilename(
         title="Select a File",
         filetypes=[("All files", "*.*")]
     )
+    self.fileContent=""
+    with open(self.currentFile, mode="r",encoding="utf-8") as f:
+      for line in f:
+        self.fileContent+=line
+    
+    self.chatDisplay.config(state="normal") 
+    self.chatDisplay.insert(tk.END, f"----File uploaded----\n")
+    self.chatDisplay.config(state="disabled")  
+    self.chatDisplay.see(tk.END) 
+
+    self.chatDisplay.config(state="normal") 
+    self.chatDisplay.insert(tk.END, f"\n")
+    self.chatDisplay.config(state="disabled")  
+    self.chatDisplay.see(tk.END) 
+    self.chatDisplay.update()
+
   def elaborateFile(self):
 
     if self.currentFile:
-      fileContent=""
-      with open(self.currentFile, mode="r",encoding="utf-8") as f:
-        for line in f:
-          fileContent+=line
+      
       contextMessage = "Read the following file content, remember it and tell me now VERY shortly, just to now you read it what is it about the file starts now: "
       self.chatDisplay.config(state="normal") 
       self.chatDisplay.insert(tk.END, f"You: Elaborate the file \n")
@@ -101,7 +128,7 @@ class App:
       self.chatDisplay.config(state="disabled")  
       self.chatDisplay.see(tk.END)
 
-      query = contextMessage+fileContent
+      query = contextMessage+self.fileContent
       self.chat.append({"role": "user", "content": query})
 
       response = chat(model=self.m, messages=self.chat)
@@ -123,12 +150,68 @@ class App:
       self.chatDisplay.config(state="disabled")  
       self.chatDisplay.see(tk.END)  
 
+      self.chatDisplay.update()
+
+      self.talk(nRep)
+
       self.chat.append({"role": "assistant", "content": nRep})
       #self.mFrame.pack()
 
 
     return
-        
+  def makeCards(self):
+    contextMessage="Use the following file I gave you to extract ALL the most important topics and formulate questions about them, make at least 3 or 4 question per topic wit hdedicated answers and make them different from each other. This is for an anki deck on the topic so they will become cards through an automated method. IT IS CRUCIAL THAT YOUR RESPONSE ONLY CONTAIN THE QUESTIONS IN THE FOLLOWING FORMAT <('Question', 'Answer')> AND NOTHING MORE AT ALL JUST THE QUESTIONS AND ANSWERS FOLLOWING THE FORMAT SEPARATED BY A NEW LINE CHARACTER, AND MAKE SURE TO PUT SINGLE QUOTATION MARKS AROUND THE ANSWER AND QUESTION. The file starts now: "
+    if self.currentFile:
+      self.chatDisplay.config(state="normal") 
+      self.chatDisplay.insert(tk.END, f"You: Make an anki deck\n")
+      self.chatDisplay.config(state="disabled")  
+      self.chatDisplay.see(tk.END)
+
+      self.chatDisplay.config(state="normal") 
+      self.chatDisplay.insert(tk.END, f"\n")
+      self.chatDisplay.config(state="disabled")  
+      self.chatDisplay.see(tk.END)
+
+      query = contextMessage+self.fileContent
+      self.chat.append({"role": "user", "content": query})
+
+      response = chat(model=self.m, messages=self.chat)
+
+      reply = response['message']['content']
+
+      rep = reply.split("\n")
+      cards=[]
+      for l in rep:
+        l=l.replace("(","")
+        l=l.replace("\\","")
+        l=l.replace(")","")
+        t=tuple(l.split(","))
+        cards.append(t)
+      print(cards)
+      
+
+      
+
+      
+      #print(reply)
+      makeDeck(cards=cards,file="D:\dionigi\Documents\Python scripts\mArvIn\prova.apkg")
+
+      self.chatDisplay.config(state="normal") 
+      self.chatDisplay.insert(tk.END, f"mArvIn: I'm done!\n")
+      self.chatDisplay.config(state="disabled")  
+      self.chatDisplay.see(tk.END)
+
+      self.chatDisplay.config(state="normal") 
+      self.chatDisplay.insert(tk.END, f"\n")
+      self.chatDisplay.config(state="disabled")  
+      self.chatDisplay.see(tk.END) 
+      self.chatDisplay.update()
+
+      self.talk("I'm done")
+
+
+    return
+       
   def sendQuery(self):
 
     query=self.chatField.get("1.0", tk.END).strip()
@@ -176,7 +259,16 @@ class App:
 
     self.chat.append({"role": "assistant", "content": nRep})
     #self.mFrame.pack()
-
+    self.chatDisplay.config(state="normal") 
+    self.chatDisplay.insert(tk.END, f"\n")
+    self.chatDisplay.config(state="disabled")  
+    self.chatDisplay.see(tk.END) 
+    #threading.Thread(target=self.talk, args=("hello world",), daemon=True).start()
+    #process=Parallel(n_jobs=1,backend="loky",prefer='processes')
+    #process([delayed(self.talk)(nRep)])
+    self.chatDisplay.update()
+    self.talk(nRep)
+    
     
 
     
@@ -196,11 +288,47 @@ class App:
 
     return
   
+  def talk(self,string):
+    self.engine.say(string)
+    self.engine.runAndWait()
+    return 
+
   def run(self):
      self.r.mainloop()
      return
   
   
+
+def makeDeck(cards,file):
+  model = gk.Model(
+    1607392319,
+    'Simple Model',
+    fields=[
+        {'name': 'Question'},
+        {'name': 'Answer'}
+    ],
+    templates=[
+        {
+            'name': 'Card 1',
+            'qfmt': '{{Question}}',  # Front of the card
+            'afmt': '{{FrontSide}}<hr id="answer">{{Answer}}',  # Back of the card
+        },
+    ]
+    )
+
+  # Create a deck
+  deck = gk.Deck(
+      2059400110,
+      'My First Anki Deck'
+  )
+  for question, answer in cards:
+    note = gk.Note(
+        model=model,
+        fields=[question, answer]
+    )
+    deck.add_note(note)
+    
+    gk.Package(deck).write_to_file(file)
 
         
 
